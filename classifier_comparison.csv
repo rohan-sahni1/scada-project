@@ -1,6 +1,6 @@
 Model,Accuracy,Macro F1,Natural recall,Time (s)
-Random Forest,0.926,0.916,0.753,
-Decision Tree,0.856,0.828,0.717,6.6
+Random Forest,0.927,0.917,0.756,
+Decision Tree,0.853,0.826,0.718,5.1
 KNN (k=5),0.852,0.812,0.654,1.4
-Logistic Regression,0.716,0.423,0.073,10.3
-"SVM (RBF, 20k subsample)",0.717,0.329,0.077,25.7
+Logistic Regression,0.715,0.42,0.072,10.2
+"SVM (RBF, 20k subsample)",0.717,0.329,0.077,24.5
