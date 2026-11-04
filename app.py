@@ -7,6 +7,89 @@ import streamlit as st
 st.set_page_config(page_title="SCADA/ICS Intrusion & Fault Detection System",
                    page_icon="🛡️", layout="wide")
 
+# ------------------------------------------------------------------ login
+import json, hashlib, hmac, secrets
+
+AUTH_FILE = "auth.json"
+DEFAULT_PASSWORD = "12345"
+USERS = ["admin", "security", "mechanical"]      # one login per team
+
+
+def _hash(pw, salt_hex):
+    return hashlib.pbkdf2_hmac("sha256", pw.encode(), bytes.fromhex(salt_hex), 200_000).hex()
+
+
+def _new_entry(pw):
+    salt = secrets.token_hex(16)
+    return {"salt": salt, "hash": _hash(pw, salt)}
+
+
+def _save_auth(auth):
+    with open(AUTH_FILE, "w") as f:
+        json.dump(auth, f)
+
+
+def _load_auth():
+    if os.path.exists(AUTH_FILE):
+        with open(AUTH_FILE) as f:
+            return json.load(f)
+    auth = {u: _new_entry(DEFAULT_PASSWORD) for u in USERS}
+    _save_auth(auth)
+    return auth
+
+
+def _correct(pw, entry):
+    return hmac.compare_digest(_hash(pw, entry["salt"]), entry["hash"])
+
+
+def require_login():
+    if st.session_state.get("user"):
+        return
+    st.title("🔐 Sign in")
+    with st.form("login"):
+        user = st.selectbox("User", USERS)
+        pw = st.text_input("Password", type="password")
+        ok = st.form_submit_button("Log in")
+    if ok:
+        if _correct(pw, _load_auth()[user]):
+            st.session_state["user"] = user
+            st.rerun()
+        else:
+            st.error("Wrong password")
+    st.stop()
+
+
+def account_sidebar():
+    user = st.session_state["user"]
+    with st.sidebar:
+        st.write(f"Signed in as **{user}**")
+        with st.expander("Change password"):
+            with st.form("change_pw", clear_on_submit=True):
+                old = st.text_input("Current password", type="password")
+                new = st.text_input("New password", type="password")
+                new2 = st.text_input("Repeat new password", type="password")
+                go = st.form_submit_button("Update")
+            if go:
+                auth = _load_auth()
+                if not _correct(old, auth[user]):
+                    st.error("Current password is wrong")
+                elif len(new) < 5:
+                    st.error("New password must be at least 5 characters")
+                elif new != new2:
+                    st.error("The two new passwords do not match")
+                else:
+                    auth[user] = _new_entry(new)
+                    _save_auth(auth)
+                    st.success("Password changed")
+        if st.button("Log out"):
+            st.session_state.clear()
+            st.rerun()
+
+
+require_login()
+account_sidebar()
+ROLE = st.session_state["user"]
+
 # What the operator should do for each predicted class
 RESPONSE = {
     "Attack":   ("Cyberattack",      "Escalate to the SECURITY team",  st.error),
