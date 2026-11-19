@@ -7,6 +7,111 @@ import streamlit as st
 st.set_page_config(page_title="SCADA/ICS Intrusion & Fault Detection System",
                    page_icon="🛡️", layout="wide")
 
+# ---------- CYBERSECURITY UI THEME ----------
+
+st.markdown("""
+<style>
+/* Main application background */
+.stApp {
+    background:
+        radial-gradient(ellipse at 85% 0%, #073b4c 0%, transparent 42%),
+        linear-gradient(135deg, #020617, #071525 65%, #020617);
+    color: #e6faff;
+}
+
+/* Main content area */
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #031725, #020b16);
+    border-right: 1px solid #00d9ff;
+}
+/* Equal-width sidebar navigation buttons */
+
+section[data-testid="stSidebar"] div[role="radiogroup"] {
+    width: 100% !important;
+}
+
+section[data-testid="stSidebar"] div[role="radiogroup"] > label {
+    width: 100% !important;
+    min-height: 52px !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    margin-bottom: 8px !important;
+}
+
+/* Make the inner button fill the entire width */
+section[data-testid="stSidebar"] div[role="radiogroup"] > label > div {
+    width: 100% !important;
+    flex: 1 !important;
+    box-sizing: border-box !important;
+}
+            
+/* Headings */
+h1, h2, h3 {
+    color: #eaffff !important;
+    text-shadow: 0 0 14px rgba(0, 229, 255, 0.25);
+}
+
+/* Metric cards */
+div[data-testid="stMetric"] {
+    background: linear-gradient(145deg, #071d2c, #04111f);
+    border: 1px solid #00c8e8;
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 0 18px rgba(0, 216, 255, 0.12);
+}
+
+/* Metric values */
+div[data-testid="stMetricValue"] {
+    color: #4deaff;
+}
+
+/* Buttons */
+.stButton > button,
+.stFormSubmitButton > button {
+    background: #062838;
+    color: #eaffff;
+    border: 1px solid #00d9ff;
+    border-radius: 9px;
+    transition: all 0.2s ease;
+}
+
+.stButton > button:hover,
+.stFormSubmitButton > button:hover {
+    background: #07516a;
+    color: white;
+    border-color: #67f5ff;
+    box-shadow: 0 0 14px rgba(0, 217, 255, 0.4);
+}
+
+/* Input fields */
+div[data-baseweb="select"],
+div[data-baseweb="input"] {
+    border-radius: 9px;
+}
+
+/* Tab navigation */
+button[data-baseweb="tab"] {
+    color: #a5e9f5;
+}
+
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #00e5ff;
+}
+
+/* Horizontal dividers */
+hr {
+    border-color: #164b60;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # ------------------------------------------------------------------ login
 import json, hashlib, hmac, secrets
 
@@ -45,17 +150,95 @@ def _correct(pw, entry):
 def require_login():
     if st.session_state.get("user"):
         return
-    st.title("🔐 Sign in")
+
+    # Premium login screen
+    st.markdown("""
+    <style>
+    /* Hide sidebar on login screen */
+    section[data-testid="stSidebar"] {
+        display: none !important;
+    }
+
+    /* Center the login content */
+    .block-container {
+        max-width: 520px !important;
+        padding-top: 18vh !important;
+    }
+
+    /* Login heading */
+    .login-heading {
+        text-align: center;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        font-size: 34px;
+        font-weight: 800;
+        color: #eaffff;
+        text-shadow: 0 0 22px rgba(0, 229, 255, 0.35);
+        margin-bottom: 8px;
+}
+
+    .login-subtitle {
+        text-align: center;
+        color: #8faabb;
+        font-size: 14px;
+        letter-spacing: 2px;
+        margin-bottom: 18px;
+        width: 100%;
+        text-align: center;
+    }
+
+    /* Login form styling */
+    div[data-testid="stForm"] {
+        background: rgba(3, 20, 36, 0.95);
+        border: 1px solid #00d9ff;
+        border-radius: 18px;
+        padding: 30px;
+        box-shadow: 0 0 35px rgba(0, 217, 255, 0.12);
+    }
+
+    /* Login button */
+    div[data-testid="stFormSubmitButton"] button {
+        width: 100%;
+        background: linear-gradient(90deg, #007eaa, #00c9e8);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: 700;
+        min-height: 45px;
+    }
+
+    div[data-testid="stFormSubmitButton"] button:hover {
+        background: #00d9ff;
+        color: #00121f;
+        box-shadow: 0 0 20px rgba(0, 217, 255, 0.4);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="login-heading">🛡️ SCADA SECURITY</div>
+    <div class="login-subtitle">INDUSTRIAL CONTROL SYSTEM</div>
+    """, unsafe_allow_html=True)
+
     with st.form("login"):
+        st.markdown("### 🔐 Secure Access")
         user = st.selectbox("User", USERS)
         pw = st.text_input("Password", type="password")
-        ok = st.form_submit_button("Log in")
+        ok = st.form_submit_button(
+    "ACCESS CONTROL CENTER",
+    use_container_width=True
+)
+
     if ok:
         if _correct(pw, _load_auth()[user]):
             st.session_state["user"] = user
             st.rerun()
         else:
             st.error("Wrong password")
+
     st.stop()
 
 
@@ -152,9 +335,21 @@ threshold = bundle["ae_threshold"]
 comp = load_csv("classifier_comparison.csv", "outputs/classifier_comparison.csv")
 
 # ------------------------------------------------------------------ header
-st.title("🛡️ SCADA/ICS Intrusion & Fault Detection System")
-st.caption("Normal operation vs natural fault vs cyberattack — Random Forest classifier "
-           "plus an autoencoder anomaly check")
+st.markdown(
+    """
+    <div style="text-align:center; margin-bottom:8px;">
+        <span style="font-size:32px; font-weight:800; color:#eaffff;">
+            🛡️ SCADA/ICS Security Control Center
+        </span>
+    </div>
+    <div style="text-align:center; margin-bottom:25px;">
+        <span style="font-size:14px; color:#8faabb; letter-spacing:1px;">
+            INTRUSION &amp; FAULT DETECTION SYSTEM | Random Forest + Autoencoder
+        </span>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Records analysed", f"{N_RECORDS:,}")
@@ -162,17 +357,84 @@ k2.metric("Features", len(bundle["features"]))
 k3.metric("Classes", len(classes))
 if comp is not None and "Macro F1" in comp.columns:
     best = comp.sort_values("Macro F1", ascending=False).iloc[0]
-    k4.metric(f"Best model: {best['Model']}", f"macro F1 {best['Macro F1']:.3f}")
+    k4.metric(
+    f"Best Model: {best['Model']}",
+    f"{best['Macro F1']:.3f}",
+    help=f"Model: {best['Model']} | Macro F1 Score"
+)
 else:
     k4.metric("Best model", "see notebook")
 
-tab_live, tab_comp, tab_eval, tab_feat, tab_data = st.tabs([
-    "🔎 Live classifier", "📊 Model comparison", "🎯 Evaluation",
-    "🧠 Features & autoencoder", "📁 Dataset",
-])
+# ---------- Vertical sidebar navigation ----------
+
+st.markdown("""
+<style>
+/* Sidebar background */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #001827, #020817);
+    border-right: 1px solid #00d9ff55;
+}
+
+/* Navigation options - equal width */
+section[data-testid="stSidebar"] div[role="radiogroup"] {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+}
+
+section[data-testid="stSidebar"] div[role="radiogroup"] label {
+    width: 100% !important;
+    min-width: 100% !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    background: #071d30;
+    border: 1px solid #16445c;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    transition: all 0.2s ease;
+}
+
+/* Hover effect */
+section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
+    border-color: #00d9ff;
+    background: #0b3046;
+}
+
+/* Selected navigation option */
+section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
+    background: #07354a;
+    border-color: #00d9ff;
+    box-shadow: 0 0 12px #00d9ff33;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.sidebar.markdown("## 🛡️ CONTROL CENTER")
+st.sidebar.caption("SCADA / ICS SECURITY MONITOR")
+
+page = st.sidebar.radio(
+    "NAVIGATION",
+    [
+        "🔎 Live classifier",
+        "📊 Model comparison",
+        "🎯 Evaluation",
+        "🧠 Features & autoencoder",
+        "📁 Dataset"
+    ],
+    label_visibility="collapsed"
+)
+
+tab_live = st.container() if page == "🔎 Live classifier" else st.empty()
+tab_comp = st.container() if page == "📊 Model comparison" else st.empty()
+tab_eval = st.container() if page == "🎯 Evaluation" else st.empty()
+tab_feat = st.container() if page == "🧠 Features & autoencoder" else st.empty()
+tab_data = st.container() if page == "📁 Dataset" else st.empty()
 
 # ================================================================== TAB 1
-with tab_live:
+if page == "🔎 Live classifier":
     mode = st.radio("Input", ["Pick a demo event", "Upload a CSV"], horizontal=True)
 
     if mode == "Pick a demo event":
@@ -203,7 +465,18 @@ with tab_live:
             st.info("The autoencoder sees this event as **within the normal range**.")
 
         st.subheader("Class probabilities")
-        st.bar_chart(pd.Series(proba[0], index=classes))
+        prob_df = pd.DataFrame({
+            "Class": classes,
+            "Probability": proba[0]
+        })
+
+        st.bar_chart(
+        prob_df,
+        x="Class",
+        y="Probability",
+        color="#00d9ff",
+        horizontal=True
+    )
 
     else:
         up = st.file_uploader("CSV with the same feature columns", type="csv")
@@ -225,27 +498,26 @@ with tab_live:
                 st.download_button("Download results", out.to_csv(index=False), "predictions.csv")
 
 # ================================================================== TAB 2
-with tab_comp:
+if page == "📊 Model comparison":
     st.subheader("Five classifiers, same train/test split")
     if comp is None:
         st.info("`classifier_comparison.csv` not found. Run the comparison cell in the notebook.")
     else:
         comp_sorted = comp.sort_values("Macro F1", ascending=False).reset_index(drop=True)
         st.dataframe(comp_sorted)
-        st.bar_chart(comp_sorted.set_index("Model")[["Macro F1", "Natural recall"]])
-        base_acc = CLASS_COUNTS["Attack"] / N_RECORDS
-        st.markdown(
-            f"- **Random Forest leads** on every measure. Many trees voting beat a single Decision Tree.\n"
-            f"- **Why macro F1, not accuracy:** a model that always answers \"Attack\" already scores "
-            f"**{base_acc:.3f} accuracy**, because 71% of records are attacks. Logistic Regression and "
-            f"the SVM barely beat that.\n"
-            f"- **Natural recall** (how many real faults are caught) is the weakest number for every model. "
-            f"Separating faults from attacks is the hard part.\n"
-            f"- Caveats: models ran with default settings (no tuning), and the SVM trained on a "
-            f"20,000-row subsample.")
+        st.bar_chart(
+        comp_sorted,
+        x="Model",
+        y=["Macro F1", "Natural recall"],
+        horizontal=True,
+        stack=False,
+        x_label="Score",
+        y_label="Classifier"
+        )
+        
 
 # ================================================================== TAB 3
-with tab_eval:
+if page == "🎯 Evaluation":
     st.subheader("Random Forest: where it is right and wrong")
     left, right = st.columns(2)
     with left:
@@ -289,7 +561,7 @@ with tab_eval:
                    "the random split was too optimistic; similar values mean the baseline is trustworthy.")
 
 # ================================================================== TAB 4
-with tab_feat:
+if page == "🧠 Features & autoencoder":
     st.subheader("Which sensor readings does the Random Forest rely on?")
     fi = pd.Series(bundle["model"].feature_importances_,
                    index=bundle["features"]).sort_values(ascending=False)
@@ -327,7 +599,7 @@ with tab_feat:
             st.bar_chart(ae_rates.iloc[:, 0])
 
 # ================================================================== TAB 5
-with tab_data:
+if page == "📁 Dataset":
     st.subheader("Power System Attack Dataset (3-class)")
     st.caption("Mississippi State University / Oak Ridge National Laboratory")
     d1, d2 = st.columns(2)
