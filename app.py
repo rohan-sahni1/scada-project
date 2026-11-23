@@ -1,21 +1,38 @@
 import os
+import base64
 import numpy as np
 import pandas as pd
 import joblib
 import streamlit as st
+import plotly.express as px
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="SCADA/ICS Intrusion & Fault Detection System",
                    page_icon="🛡️", layout="wide")
 
 # ---------- CYBERSECURITY UI THEME ----------
 
+# Load dashboard background image
+bg_path = os.path.join(os.path.dirname(__file__), "assets", "scada_bg2.png")
+
+with open(bg_path, "rb") as image_file:
+    bg_base64 = base64.b64encode(image_file.read()).decode()
+
 st.markdown("""
 <style>
 /* Main application background */
+
 .stApp {
-    background:
-        radial-gradient(ellipse at 85% 0%, #073b4c 0%, transparent 42%),
-        linear-gradient(135deg, #020617, #071525 65%, #020617);
+    background-image:
+        linear-gradient(
+            rgba(2, 6, 23, 0.78),
+            rgba(2, 6, 23, 0.88)
+        ),
+        url("__SCADA_BG__");
+
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
     color: #e6faff;
 }
 
@@ -110,7 +127,7 @@ hr {
     border-color: #164b60;
 }
 </style>
-""", unsafe_allow_html=True)
+""".replace("__SCADA_BG__", f"data:image/png;base64,{bg_base64}"), unsafe_allow_html=True)
 
 # ------------------------------------------------------------------ login
 import json, hashlib, hmac, secrets
@@ -493,7 +510,145 @@ if page == "🔎 Live classifier":
                                     "confidence": proba.max(axis=1).round(3),
                                     "anomaly_flag": err > threshold})
                 st.subheader("Summary")
-                st.bar_chart(out["predicted"].value_counts())
+                # Dynamic prediction distribution graph
+                class_counts = (
+                    out["predicted"]
+                    .value_counts()
+                    .reindex(["Attack", "Natural", "NoEvents"], fill_value=0)
+                    .reset_index()
+                )
+
+                class_counts.columns = ["Class", "Count"]
+
+                fig = px.bar(
+                    class_counts,
+                    x="Class",
+                    y="Count",
+                    color="Class",
+                    color_discrete_map={
+                        "Attack": "#ff4b6e",
+                        "Natural": "#ffb347",
+                        "NoEvents": "#00d9ff"
+                    },
+                    title="Prediction Distribution - Uploaded Dataset",
+                    text="Count"
+                )
+
+                fig.update_layout(
+                    template="plotly_dark",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font_color="#e6faff",
+                    showlegend=False,
+                    xaxis_title="Predicted Class",
+                    yaxis_title="Number of Records"
+                )
+
+                fig.update_traces(
+                    hovertemplate="<b>%{x}</b><br>Records: %{y}<extra></extra>"
+                )
+                graph_col1, graph_col2 = st.columns(2, gap="medium")
+
+                with graph_col1:
+                    with st.container(border=True):
+                        st.plotly_chart(fig, use_container_width=True)
+                # Dynamic anomaly score monitoring graph
+                st.subheader("Anomaly Score Monitoring")
+
+                anomaly_df = pd.DataFrame({
+                    "Record": np.arange(len(err)),
+                    "Anomaly Score": err,
+                    "Anomaly": err > threshold
+                })
+
+                anomaly_fig = go.Figure()
+
+                # Plot anomaly scores
+                anomaly_fig.add_trace(
+                    go.Scatter(
+                        x=anomaly_df["Record"],
+                        y=anomaly_df["Anomaly Score"],
+                        mode="lines",
+                        name="Anomaly Score",
+                        line=dict(color="#00d9ff", width=2)
+                    )
+                )
+
+                # Highlight detected anomalies
+                anomalies = anomaly_df[anomaly_df["Anomaly"]]
+
+                anomaly_fig.add_trace(
+                    go.Scatter(
+                        x=anomalies["Record"],
+                        y=anomalies["Anomaly Score"],
+                        mode="markers",
+                        name="Flagged Anomalies",
+                        marker=dict(color="#ff4b6e", size=5)
+                    )
+                )
+
+                # Autoencoder detection threshold
+                anomaly_fig.add_hline(
+                    y=threshold,
+                    line_dash="dash",
+                    line_color="#ffb347",
+                    annotation_text="Anomaly Threshold"
+                )
+
+                anomaly_fig.update_layout(
+                    title="Anomaly Scores Across Uploaded Records",
+                    xaxis_title="Record Number",
+                    yaxis_title="Autoencoder Anomaly Score (Log Scale)",
+                    yaxis_type="log",
+                    template="plotly_dark",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font_color="#e6faff",
+                    hovermode="x unified"
+                )
+
+                with graph_col2:
+                    with st.container(border=True):
+                        st.plotly_chart(anomaly_fig, use_container_width=True)
+                # Dynamic sensor monitoring graph
+                st.subheader("Interactive Sensor Monitoring")
+
+                sensor_columns = [c for c in bundle["features"] if c in df.columns]
+
+                selected_sensor = st.selectbox(
+                    "Select a sensor to monitor",
+                    sensor_columns,
+                    key="uploaded_sensor_selector"
+                )
+
+                sensor_values = pd.to_numeric(
+                    df[selected_sensor], errors="coerce"
+                ).replace([np.inf, -np.inf], np.nan)
+
+                sensor_fig = go.Figure()
+
+                sensor_fig.add_trace(
+                    go.Scatter(
+                        x=np.arange(len(sensor_values)),
+                        y=sensor_values,
+                        mode="lines",
+                        name=selected_sensor,
+                        line=dict(color="#00d9ff", width=2)
+                    )
+                )
+
+                sensor_fig.update_layout(
+                    title=f"Sensor Readings: {selected_sensor}",
+                    xaxis_title="Record Number",
+                    yaxis_title="Sensor Reading",
+                    template="plotly_dark",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font_color="#e6faff",
+                    hovermode="x unified"
+                )
+
+                st.plotly_chart(sensor_fig, use_container_width=True)
                 st.dataframe(out)
                 st.download_button("Download results", out.to_csv(index=False), "predictions.csv")
 
@@ -514,6 +669,7 @@ if page == "📊 Model comparison":
         x_label="Score",
         y_label="Classifier"
         )
+
         
 
 # ================================================================== TAB 3
