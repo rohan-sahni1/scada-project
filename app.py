@@ -84,6 +84,33 @@ div[data-testid="stMetric"] {
     box-shadow: 0 0 18px rgba(0, 216, 255, 0.12);
 }
 
+/* Graph container styling */
+.st-key-prediction_panel,
+.st-key-anomaly_panel,
+.st-key-sensor_panel,
+.st-key-dataset_table_panel,
+.st-key-dataset_graph_panel,
+.st-key-feature_panel,
+.st-key-autoencoder_panel, 
+.st-key-confusion_panel,
+.st-key-performance_panel,
+.st-key-validation_panel,
+.st-key-comparison_table_panel,
+.st-key-comparison_graph_panel{
+    border: 1px solid #00c8e8 !important;
+    border-radius: 14px !important;
+    box-shadow: 0 0 18px rgba(0, 216, 255, 0.12) !important;
+    background: linear-gradient(145deg, #071d2c, #04111f);
+    padding: 18px !important;
+    box-sizing: border-box;
+}
+
+/* Equal height for model comparison panels */
+.st-key-comparison_table_panel,
+.st-key-comparison_graph_panel {
+    min-height: 425px !important;
+}
+
 /* Metric values */
 div[data-testid="stMetricValue"] {
     color: #4deaff;
@@ -125,6 +152,30 @@ button[data-baseweb="tab"][aria-selected="true"] {
 /* Horizontal dividers */
 hr {
     border-color: #164b60;
+}
+/* Cyan glowing graph containers */
+[data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stVerticalBlock"][style*="border"] {
+    border: 1px solid #00d9ff !important;
+    border-radius: 16px !important;
+    box-shadow: 0 0 15px rgba(0, 217, 255, 0.25) !important;
+    background: rgba(6, 22, 35, 0.35) !important;
+}
+
+/* Download results button */
+div[data-testid="stDownloadButton"] button {
+    background: #081c29 !important;
+    color: #00d9ff !important;
+    border: 1px solid #00d9ff !important;
+    border-radius: 10px !important;
+    box-shadow: 0 0 10px rgba(0, 217, 255, 0.20);
+    font-weight: 600;
+}
+
+div[data-testid="stDownloadButton"] button:hover {
+    background: #00d9ff !important;
+    color: #061421 !important;
+    box-shadow: 0 0 18px rgba(0, 217, 255, 0.50);
 }
 </style>
 """.replace("__SCADA_BG__", f"data:image/png;base64,{bg_base64}"), unsafe_allow_html=True)
@@ -368,19 +419,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-k1, k2, k3, k4 = st.columns(4)
-k1.metric("Records analysed", f"{N_RECORDS:,}")
-k2.metric("Features", len(bundle["features"]))
-k3.metric("Classes", len(classes))
-if comp is not None and "Macro F1" in comp.columns:
-    best = comp.sort_values("Macro F1", ascending=False).iloc[0]
-    k4.metric(
-    f"Best Model: {best['Model']}",
-    f"{best['Macro F1']:.3f}",
-    help=f"Model: {best['Model']} | Macro F1 Score"
-)
-else:
-    k4.metric("Best model", "see notebook")
 
 # ---------- Vertical sidebar navigation ----------
 
@@ -435,23 +473,23 @@ st.sidebar.caption("SCADA / ICS SECURITY MONITOR")
 page = st.sidebar.radio(
     "NAVIGATION",
     [
-        "🔎 Live classifier",
-        "📊 Model comparison",
-        "🎯 Evaluation",
-        "🧠 Features & autoencoder",
-        "📁 Dataset"
+        "Live classifier",
+        "Model comparison",
+        "Evaluation",
+        "Model Diagnostics",
+        "Dataset"
     ],
     label_visibility="collapsed"
 )
 
-tab_live = st.container() if page == "🔎 Live classifier" else st.empty()
-tab_comp = st.container() if page == "📊 Model comparison" else st.empty()
-tab_eval = st.container() if page == "🎯 Evaluation" else st.empty()
-tab_feat = st.container() if page == "🧠 Features & autoencoder" else st.empty()
-tab_data = st.container() if page == "📁 Dataset" else st.empty()
+tab_live = st.container() if page == "Live classifier" else st.empty()
+tab_comp = st.container() if page == "Model comparison" else st.empty()
+tab_eval = st.container() if page == "Evaluation" else st.empty()
+tab_feat = st.container() if page == "Model Diagnostics" else st.empty()
+tab_data = st.container() if page == "Dataset" else st.empty()
 
 # ================================================================== TAB 1
-if page == "🔎 Live classifier":
+if page == "Live classifier":
     mode = st.radio("Input", ["Pick a demo event", "Upload a CSV"], horizontal=True)
 
     if mode == "Pick a demo event":
@@ -509,7 +547,28 @@ if page == "🔎 Live classifier":
                 out = pd.DataFrame({"predicted": labels,
                                     "confidence": proba.max(axis=1).round(3),
                                     "anomaly_flag": err > threshold})
-                st.subheader("Summary")
+                # Store latest successful CSV analysis for Model Diagnostics
+                st.session_state["diagnostic_data"] = pd.DataFrame({
+                    "Predicted Class": labels,
+                    "Anomaly Score": err,
+                    "Anomaly Detected": err > threshold
+                })
+
+                st.session_state["diagnostic_filename"] = up.name
+                st.subheader("Dataset Overview")
+                st.caption(f"Uploaded dataset: {up.name}")
+
+                total_records = len(out)
+                attack_count = int((out["predicted"] == "Attack").sum())
+                natural_count = int((out["predicted"] == "Natural").sum())
+                normal_count = int((out["predicted"] == "NoEvents").sum())
+
+                m1, m2, m3, m4 = st.columns(4)
+
+                m1.metric("Total Records", f"{total_records:,}")
+                m2.metric("Predicted Attacks", f"{attack_count:,}")
+                m3.metric("Predicted Natural Faults", f"{natural_count:,}")
+                m4.metric("Predicted NoEvents", f"{normal_count:,}")
                 # Dynamic prediction distribution graph
                 class_counts = (
                     out["predicted"]
@@ -541,7 +600,9 @@ if page == "🔎 Live classifier":
                     font_color="#e6faff",
                     showlegend=False,
                     xaxis_title="Predicted Class",
-                    yaxis_title="Number of Records"
+                    yaxis_title="Number of Records",
+                    height=350,
+                    margin=dict(l=45, r=20, t=65, b=40),
                 )
 
                 fig.update_traces(
@@ -550,10 +611,9 @@ if page == "🔎 Live classifier":
                 graph_col1, graph_col2 = st.columns(2, gap="medium")
 
                 with graph_col1:
-                    with st.container(border=True):
+                    with st.container(border=False, key="prediction_panel"):
                         st.plotly_chart(fig, use_container_width=True)
                 # Dynamic anomaly score monitoring graph
-                st.subheader("Anomaly Score Monitoring")
 
                 anomaly_df = pd.DataFrame({
                     "Record": np.arange(len(err)),
@@ -596,189 +656,577 @@ if page == "🔎 Live classifier":
                 )
 
                 anomaly_fig.update_layout(
-                    title="Anomaly Scores Across Uploaded Records",
-                    xaxis_title="Record Number",
-                    yaxis_title="Autoencoder Anomaly Score (Log Scale)",
-                    yaxis_type="log",
-                    template="plotly_dark",
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    font_color="#e6faff",
-                    hovermode="x unified"
+                title="Anomaly Scores Across Uploaded Records",
+                xaxis_title="Record Number",
+                yaxis_title="Autoencoder Anomaly Score (Log Scale)",
+                yaxis_type="log",
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font_color="#e6faff",
+                hovermode="x unified",
+                height=350,
+                margin=dict(l=45, r=20, t=65, b=40),
+                legend=dict(
+                    orientation="h",
+                    y=1.02,
+                    x=0
                 )
+            )
 
                 with graph_col2:
-                    with st.container(border=True):
+                    with st.container(border=False, key="anomaly_panel"):
                         st.plotly_chart(anomaly_fig, use_container_width=True)
                 # Dynamic sensor monitoring graph
-                st.subheader("Interactive Sensor Monitoring")
+                with st.container(border=False, key="sensor_panel"):
+                    st.subheader("Interactive Sensor Monitoring")
 
-                sensor_columns = [c for c in bundle["features"] if c in df.columns]
+                    sensor_columns = [c for c in bundle["features"] if c in df.columns]
 
-                selected_sensor = st.selectbox(
-                    "Select a sensor to monitor",
-                    sensor_columns,
-                    key="uploaded_sensor_selector"
-                )
-
-                sensor_values = pd.to_numeric(
-                    df[selected_sensor], errors="coerce"
-                ).replace([np.inf, -np.inf], np.nan)
-
-                sensor_fig = go.Figure()
-
-                sensor_fig.add_trace(
-                    go.Scatter(
-                        x=np.arange(len(sensor_values)),
-                        y=sensor_values,
-                        mode="lines",
-                        name=selected_sensor,
-                        line=dict(color="#00d9ff", width=2)
+                    selected_sensor = st.selectbox(
+                        "Select a sensor to monitor",
+                        sensor_columns,
+                        key="uploaded_sensor_selector"
                     )
-                )
 
-                sensor_fig.update_layout(
-                    title=f"Sensor Readings: {selected_sensor}",
-                    xaxis_title="Record Number",
-                    yaxis_title="Sensor Reading",
-                    template="plotly_dark",
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    font_color="#e6faff",
-                    hovermode="x unified"
-                )
+                    sensor_values = pd.to_numeric(
+                        df[selected_sensor], errors="coerce"
+                    ).replace([np.inf, -np.inf], np.nan)
 
-                st.plotly_chart(sensor_fig, use_container_width=True)
-                st.dataframe(out)
-                st.download_button("Download results", out.to_csv(index=False), "predictions.csv")
+                    sensor_fig = go.Figure()
+
+                    sensor_fig.add_trace(
+                        go.Scatter(
+                            x=np.arange(len(sensor_values)),
+                            y=sensor_values,
+                            mode="lines",
+                            name=selected_sensor,
+                            line=dict(color="#00d9ff", width=2)
+                        )
+                    )
+
+                    sensor_fig.update_layout(
+                        title=f"Sensor Readings: {selected_sensor}",
+                        xaxis_title="Record Number",
+                        yaxis_title="Sensor Reading",
+                        template="plotly_dark",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        font_color="#e6faff",
+                        hovermode="x unified",
+                        height=320,
+                        margin=dict(l=45, r=20, t=50, b=40),
+                    )
+
+                    st.plotly_chart(sensor_fig, use_container_width=True)
+                st.subheader("Prediction Results")
+
+                st.dataframe(
+                    out.style.set_properties(**{
+                        "background-color": "#071d2c",
+                        "color": "#e6faff"
+                    }),
+                    column_config={
+                        "predicted": "Predicted Class",
+                        "confidence": st.column_config.NumberColumn(
+                            "Confidence",
+                            format="percent"
+                        ),
+                        "anomaly_flag": "Anomaly Detected"
+                    },
+                    hide_index=True,
+                    width="stretch",
+                    height=300
+                )
+                left_space, download_col, right_space = st.columns([2, 1, 2])
+
+                with download_col:
+                    st.download_button(
+                        "Download results",
+                        out.to_csv(index=False),
+                        "predictions.csv",
+                        width="stretch"
+                    )
 
 # ================================================================== TAB 2
-if page == "📊 Model comparison":
-    st.subheader("Five classifiers, same train/test split")
+if page == "Model comparison":
+    st.subheader("Model Comparison")
+    st.caption("Historical classifier performance — held-out test results")
+
     if comp is None:
-        st.info("`classifier_comparison.csv` not found. Run the comparison cell in the notebook.")
+        st.warning("Classifier comparison results are unavailable.")
+
     else:
-        comp_sorted = comp.sort_values("Macro F1", ascending=False).reset_index(drop=True)
-        st.dataframe(comp_sorted)
-        st.bar_chart(
-        comp_sorted,
-        x="Model",
-        y=["Macro F1", "Natural recall"],
-        horizontal=True,
-        stack=False,
-        x_label="Score",
-        y_label="Classifier"
-        )
+        comp_sorted = comp.sort_values(
+            "Macro F1", ascending=False
+        ).reset_index(drop=True)
+
+        best_model = comp_sorted.iloc[0]
+
+        m1, m2, m3 = st.columns(3)
+
+        m1.metric("Best Model", best_model["Model"])
+        m2.metric("Best Accuracy", f"{comp_sorted['Accuracy'].max():.1%}")
+        m3.metric("Best Macro F1", f"{best_model['Macro F1']:.3f}")
+
+        left, right = st.columns(2)
+
+        with left:
+            with st.container(key="comparison_table_panel"):
+                st.markdown("**Classifier Performance**")
+
+                display_comp = comp_sorted[
+                    ["Model", "Accuracy", "Macro F1", "Natural recall"]
+                ].copy()
+
+                st.dataframe(
+                    display_comp,
+                    hide_index=True,
+                    width="stretch"
+                )
+
+                st.caption(
+                    "SVM was trained using a 20,000-record subsample."
+                )
+
+        with right:
+            with st.container(key="comparison_graph_panel"):
+                st.markdown("**Performance Comparison**")
+
+                comparison_fig = go.Figure()
+
+                for metric, color in [
+                    ("Accuracy", "#00c8e8"),
+                    ("Macro F1", "#ffb347"),
+                    ("Natural recall", "#527fdb")
+                ]:
+                    comparison_fig.add_trace(go.Bar(
+                        y=comp_sorted["Model"],
+                        x=comp_sorted[metric],
+                        name=metric,
+                        orientation="h",
+                        marker_color=color,
+                        hovertemplate="%{y}<br>Score: %{x:.3f}<extra></extra>"
+                    ))
+
+                comparison_fig.update_layout(
+                    barmode="group",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#e6f4ff"),
+                    xaxis=dict(
+                        title="Score",
+                        range=[0, 1],
+                        gridcolor="rgba(255,255,255,0.10)"
+                    ),
+                    yaxis=dict(
+                        autorange="reversed",
+                        title=None,
+                        automargin=True
+                    ),
+                    legend=dict(
+                        orientation="h",
+                        y=1.12,
+                        x=0,
+                        font=dict(size=11)
+                    ),
+                    height=340,
+                    margin=dict(l=10, r=15, t=45, b=40)
+                )
+
+                st.plotly_chart(
+                    comparison_fig,
+                    width="stretch"
+                )
 
         
 
 # ================================================================== TAB 3
-if page == "🎯 Evaluation":
-    st.subheader("Random Forest: where it is right and wrong")
+if page == "Evaluation":
+    st.subheader("Model Evaluation")
+    st.caption("Random Forest — Held-out Test Performance")
+
+    classes = ["Attack", "Natural", "NoEvents"]
+
+    cmdf = load_csv(
+        "outputs/confusion_matrix.csv", index_col=0
+    )
+
+    if cmdf is None:
+        cmdf = pd.DataFrame(
+            [
+                [10936, 190, 7],
+                [902, 2758, 2],
+                [48, 4, 829]
+            ],
+            index=classes,
+            columns=classes
+        )
+        st.caption("Using recorded baseline confusion matrix.")
+
+    cmdf = cmdf.loc[classes, classes]
+    cm = cmdf.to_numpy()
+
+    # Calculate per-class performance
+    performance = []
+
+    for i, cls in enumerate(classes):
+        tp = cm[i, i]
+        predicted = cm[:, i].sum()
+        actual = cm[i, :].sum()
+
+        precision = tp / predicted if predicted else 0
+        recall = tp / actual if actual else 0
+
+        f1 = (
+            2 * precision * recall / (precision + recall)
+            if precision + recall else 0
+        )
+
+        performance.append({
+            "Class": cls,
+            "Precision": precision,
+            "Recall": recall,
+            "F1 Score": f1,
+            "Support": int(actual)
+        })
+
+    report = pd.DataFrame(performance)
+
+    accuracy = cm.diagonal().sum() / cm.sum()
+    macro_f1 = report["F1 Score"].mean()
+    natural_recall = report.loc[
+        report["Class"] == "Natural", "Recall"
+    ].iloc[0]
+
+    # Performance metrics
+    m1, m2, m3 = st.columns(3)
+
+    m1.metric("Accuracy", f"{accuracy:.1%}")
+    m2.metric("Macro F1", f"{macro_f1:.3f}")
+    m3.metric("Natural Recall", f"{natural_recall:.1%}")
+
     left, right = st.columns(2)
+
+    # Confusion matrix
     with left:
-        show_image("Confusion matrix (rows = actual, columns = predicted)",
-                   "outputs/confusion_matrix.png", "confusion_matrix.png")
+        with st.container(key="confusion_panel"):
+            st.markdown("**Confusion Matrix**")
+
+            cm_fig = go.Figure(
+                data=go.Heatmap(
+                    z=cm,
+                    x=classes,
+                    y=classes,
+                    text=cm,
+                    texttemplate="%{text:,}",
+                    colorscale=[
+                        [0, "#102b3c"],
+                        [0.4, "#007b99"],
+                        [1, "#00c8e8"]
+                    ],
+                    showscale=False,
+                    hovertemplate=(
+                        "Actual: %{y}<br>"
+                        "Predicted: %{x}<br>"
+                        "Records: %{z:,}"
+                        "<extra></extra>"
+                    )
+                )
+            )
+
+            cm_fig.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#e6f4ff"),
+                xaxis_title="Predicted Class",
+                yaxis_title="Actual Class",
+                height=300,
+                margin=dict(l=65, r=15, t=15, b=45)
+            )
+
+            cm_fig.update_yaxes(autorange="reversed")
+
+            st.plotly_chart(cm_fig, width="stretch")
+
+    # Per-class performance
     with right:
-        rep = load_csv("outputs/classification_report.csv", index_col=0)
-        if rep is None:
-            st.info("Per-class table not found. Run the optional last notebook cell (saves the report tables).")
-        else:
-            st.markdown("**Precision / recall / F1 per class**")
-            st.dataframe(rep)
+        with st.container(key="performance_panel"):
+            st.markdown("**Per-Class Performance**")
 
-    cmdf = load_csv("outputs/confusion_matrix.csv", index_col=0)
-    if cmdf is not None and {"Attack", "Natural"} <= set(cmdf.index):
-        nat_total = int(cmdf.loc["Natural"].sum())
-        nat_as_atk = int(cmdf.loc["Natural", "Attack"])
-        atk_total = int(cmdf.loc["Attack"].sum())
-        atk_as_nat = int(cmdf.loc["Attack", "Natural"])
-        st.markdown(
-            f"**The two mistakes are not equally costly.** "
-            f"{nat_as_atk:,} of {nat_total:,} faults ({nat_as_atk / nat_total:.1%}) were called attacks: "
-            f"wasted effort for the security team. "
-            f"{atk_as_nat:,} of {atk_total:,} attacks ({atk_as_nat / atk_total:.1%}) were called faults: "
-            f"a real attack sent to the maintenance crew.")
+            st.dataframe(
+                report.round(3),
+                hide_index=True,
+                width="stretch"
+            )
 
-    st.divider()
-    st.subheader("Does the score hold on files the model never saw?")
-    st.caption("Grouped cross-validation: each fold holds out whole files, so no near-identical "
-               "neighbouring rows leak from training into testing.")
+            p1, p2 = st.columns(2)
+
+            p1.metric(
+                "Correct Predictions",
+                f"{int(cm.diagonal().sum()):,}"
+            )
+
+            p2.metric(
+                "Incorrect Predictions",
+                f"{int(cm.sum() - cm.diagonal().sum()):,}"
+            )
+
+    # Grouped cross-validation
+    st.subheader("Grouped Cross-Validation")
+
     cv = load_csv("outputs/grouped_cv_results.csv")
-    if cv is None:
-        st.info("Grouped CV results not found. Run the grouped cross-validation cell.")
+
+    if cv is not None:
+        cv_accuracy = cv["accuracy"].mean()
+        cv_f1 = cv["macro_f1"].mean()
+        cv_recall = cv["natural_recall"].mean()
+
+        g1, g2, g3 = st.columns(3)
+
+        g1.metric("Mean Accuracy", f"{cv_accuracy:.3f}")
+        g2.metric("Mean Macro F1", f"{cv_f1:.3f}")
+        g3.metric("Mean Natural Recall", f"{cv_recall:.3f}")
+
+        with st.container(key="validation_panel"):
+            st.markdown("**Random Split vs Grouped Validation**")
+
+            comparison_fig = go.Figure()
+
+            comparison_fig.add_trace(go.Bar(
+                name="Random Split",
+                x=["Accuracy", "Macro F1", "Natural Recall"],
+                y=[accuracy, macro_f1, natural_recall],
+                marker_color="#00c8e8",
+                text=[accuracy, macro_f1, natural_recall],
+                texttemplate="%{text:.3f}",
+                textposition="auto"
+            ))
+
+            comparison_fig.add_trace(go.Bar(
+                name="Grouped Validation",
+                x=["Accuracy", "Macro F1", "Natural Recall"],
+                y=[cv_accuracy, cv_f1, cv_recall],
+                marker_color="#ffb347",
+                text=[cv_accuracy, cv_f1, cv_recall],
+                texttemplate="%{text:.3f}",
+                textposition="auto"
+            ))
+
+            comparison_fig.update_layout(
+                barmode="group",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#e6f4ff"),
+                yaxis=dict(
+                    title="Score",
+                    range=[0, 1],
+                    gridcolor="rgba(255,255,255,0.12)"
+                ),
+                legend=dict(
+                    orientation="h",
+                    y=1.12,
+                    x=0
+                ),
+                height=300,
+                margin=dict(l=45, r=20, t=40, b=30)
+            )
+
+            st.plotly_chart(
+                comparison_fig, width="stretch"
+            )
+
+        with st.expander("Detailed Validation Results"):
+            st.dataframe(
+                cv,
+                hide_index=True,
+                width="stretch"
+            )
+
     else:
-        st.dataframe(cv)
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Mean accuracy", f"{cv['accuracy'].mean():.3f}")
-        m2.metric("Mean macro F1", f"{cv['macro_f1'].mean():.3f}")
-        m3.metric("Mean Natural recall", f"{cv['natural_recall'].mean():.3f}")
-        st.caption("Compare with the random-split result (macro F1 about 0.92). A big drop would mean "
-                   "the random split was too optimistic; similar values mean the baseline is trustworthy.")
-
+        st.warning("Grouped validation results unavailable.")
 # ================================================================== TAB 4
-if page == "🧠 Features & autoencoder":
-    st.subheader("Which sensor readings does the Random Forest rely on?")
-    fi = pd.Series(bundle["model"].feature_importances_,
-                   index=bundle["features"]).sort_values(ascending=False)
-    a, b_ = st.columns(2)
-    with a:
-        show_image("Top 15 features", "outputs/feature_importance.png", "feature_importance.png")
-    with b_:
-        st.markdown("**Top 15 features and their importance**")
-        st.dataframe(fi.head(15).rename("importance").round(4))
-        log_cols = [c for c in fi.index if "log" in c]
-        st.metric(f"Importance held by the {len(log_cols)} log/alert columns",
-                  f"{fi[log_cols].sum():.1%}")
+if page == "Model Diagnostics":
+    st.subheader("Model Diagnostics")
 
-    st.divider()
-    st.subheader("Autoencoder: a second opinion that needs no attack labels")
-    st.markdown(
-        "Trained **only on normal operation**. It rebuilds normal readings well and unfamiliar ones "
-        "badly; the rebuild error is the anomaly score. It can say *\"this is not normal\"*, but not "
-        "whether the cause is an attack or a fault, so it complements the classifier.")
-    ae_sum = load_csv("outputs/autoencoder_summary.csv")
-    ae_rates = load_csv("outputs/autoencoder_flag_rates.csv", index_col=0)
-    m1, m2 = st.columns(2)
-    m1.metric("Alarm threshold", f"{threshold:.3f}")
-    if ae_sum is not None:
-        m2.metric("ROC-AUC (normal vs abnormal)", f"{float(ae_sum['roc_auc'].iloc[0]):.3f}")
-    c_left, c_right = st.columns(2)
-    with c_left:
-        show_image("Reconstruction error by true class", "outputs/autoencoder_error_hist.png")
-    with c_right:
-        if ae_rates is None:
-            st.info("Flag-rate table not found. Run the optional last notebook cell.")
-        else:
-            st.markdown("**Share of rows flagged as anomalous, by true class**")
-            st.dataframe(ae_rates)
-            st.bar_chart(ae_rates.iloc[:, 0])
+    fi = pd.Series(
+        bundle["model"].feature_importances_,
+        index=bundle["features"]
+    ).sort_values(ascending=False)
+
+    log_cols = [c for c in fi.index if "log" in c]
+
+    left, right = st.columns(2)
+
+    # RANDOM FOREST DIAGNOSTICS
+    with left:
+        with st.container(key="feature_panel"):
+            st.markdown("**Random Forest — Feature Importance**")
+
+            st.metric(
+                "Log/Alert Feature Importance",
+                f"{fi[log_cols].sum():.1%}"
+            )
+
+            top_features = fi.head(15).sort_values()
+
+            feature_fig = go.Figure(go.Bar(
+                x=top_features.values,
+                y=top_features.index,
+                orientation="h",
+                marker_color="#00c8e8",
+                hovertemplate=(
+                    "Feature: %{y}<br>"
+                    "Importance: %{x:.4f}<extra></extra>"
+                )
+            ))
+
+            feature_fig.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                xaxis_title="Feature Importance",
+                height=400,
+                margin=dict(l=90, r=20, t=20, b=40),
+                font=dict(color="white")
+            )
+
+            st.caption("Trained Random Forest — Top 15 features")
+            st.plotly_chart(feature_fig, width="stretch")
+
+    # AUTOENCODER DIAGNOSTICS
+    with right:
+        with st.container(key="autoencoder_panel"):
+            st.markdown("**Autoencoder Diagnostics**")
+
+            metric1, metric2 = st.columns(2)
+
+            metric1.metric(
+                "Alarm Threshold",
+                f"{threshold:.3f}"
+            )
+
+            if "diagnostic_data" in st.session_state:
+
+                diag = st.session_state["diagnostic_data"]
+
+                metric2.metric(
+                    "Flagged Records",
+                    f"{diag['Anomaly Detected'].sum():,}"
+                )
+
+                st.caption(
+                    "Latest analysed CSV: "
+                    + st.session_state["diagnostic_filename"]
+                )
+
+                anomaly_fig = go.Figure()
+
+                anomaly_fig.add_trace(go.Scatter(
+                    x=list(range(len(diag))),
+                    y=diag["Anomaly Score"].clip(lower=1e-12),
+                    mode="lines",
+                    name="Anomaly Score",
+                    line=dict(color="#00c8e8", width=1.5)
+                ))
+
+                anomaly_fig.add_hline(
+                    y=threshold,
+                    line_dash="dash",
+                    line_color="#ffb347",
+                    annotation_text="Alarm Threshold"
+                )
+
+                anomaly_fig.update_layout(
+                    template="plotly_dark",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    xaxis_title="Record Number",
+                    yaxis_title="Anomaly Score",
+                    yaxis_type="log",
+                    height=400,
+                    margin=dict(l=50, r=20, t=20, b=40),
+                    font=dict(color="white"),
+                    showlegend=False
+                )
+
+                st.plotly_chart(
+                    anomaly_fig,
+                    width="stretch"
+                )
+
+            else:
+                st.info(
+                    "Upload a compatible CSV in Live Classifier "
+                    "to view dataset-specific diagnostics."
+                )
+
+                show_image(
+                    "Historical Reconstruction Error",
+                    "outputs/autoencoder_error_hist.png"
+                )
 
 # ================================================================== TAB 5
-if page == "📁 Dataset":
+if page == "Dataset":
     st.subheader("Power System Attack Dataset (3-class)")
     st.caption("Mississippi State University / Oak Ridge National Laboratory")
+    m1, m2, m3 = st.columns(3)
+
+    m1.metric("Total Records", "78,377")
+    m2.metric("Input Features", "128")
+    m3.metric("Dataset Files", "15")
     d1, d2 = st.columns(2)
     counts = pd.DataFrame({"records": CLASS_COUNTS})
     counts["share"] = (counts["records"] / N_RECORDS).map("{:.1%}".format)
     with d1:
-        st.markdown("**Class distribution**")
-        st.dataframe(counts)
-        st.bar_chart(counts["records"])
-    with d2:
-        st.markdown("**What is in the data**")
-        st.markdown(
-            "- 15 raw files merged into **78,377 records** x **128 features**, zero missing values\n"
-            "- Readings from **4 PMUs** (R1 to R4): voltage and current magnitudes, phase angles\n"
-            "- **12 log/alert columns**: control panel, relay and Snort intrusion-detector flags\n"
-            "- Labels: `NoEvents` (normal), `Natural` (fault / disturbance), `Attack`\n"
-            "- **Infinite values** in the four `R*-PA:Z` columns (8.04% of rows), replaced with "
-            "column medians")
+        with st.container(height=380, key="dataset_table_panel"):
+            st.markdown("**Class Distribution**")
 
-    with st.expander("Limitations to keep in mind"):
-        st.markdown(
-            "- Lab-scale power system data (2014 to 2015); results may not transfer to modern grids.\n"
-            "- Classes are imbalanced (71% / 23% / 6%), so accuracy alone is misleading.\n"
-            "- Offline analysis of recorded data, not real-time detection.\n"
-            "- The demo events come from the held-out test rows, not from a live system.\n"
-            "- Academic prototype, not a replacement for layered production security.")
+            display_counts = counts.reset_index()
+            display_counts.columns = ["Class", "Records", "Share"]
+
+            st.dataframe(
+                display_counts.style.set_properties(**{
+                    "background-color": "#071d2c",
+                    "color": "#e6faff"
+                }),
+                hide_index=True,
+                width="stretch",
+                height="auto"
+            )
+
+    with d2:
+        with st.container(height=380, key="dataset_graph_panel"):
+            st.markdown("**Dataset Distribution Graph**")
+
+            dataset_fig = px.bar(
+                x=counts.index,
+                y=counts["records"],
+                color=counts.index,
+                text=counts["records"],
+                color_discrete_map={
+                    "Attack": "#ff4b6e",
+                    "Natural": "#ffb347",
+                    "NoEvents": "#00d9ff"
+                }
+            )
+
+            dataset_fig.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font_color="#e6faff",
+                showlegend=False,
+                xaxis_title="Event Class",
+                yaxis_title="Number of Records",
+                height=300,
+                margin=dict(l=45, r=20, t=25, b=40)
+            )
+
+            dataset_fig.update_traces(
+                textposition="auto",
+                texttemplate="%{y:,}",
+                hovertemplate="Class: %{x}<br>Records: %{y:,}<extra></extra>"
+            )
+
+            st.plotly_chart(dataset_fig, width="stretch")
