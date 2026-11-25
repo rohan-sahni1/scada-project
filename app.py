@@ -6,6 +6,7 @@ import joblib
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
+from mitre_mapping import show_mitre_intelligence
 
 st.set_page_config(page_title="SCADA/ICS Intrusion & Fault Detection System",
                    page_icon="🛡️", layout="wide")
@@ -519,6 +520,9 @@ if page == "Live classifier":
         else:
             st.info("The autoencoder sees this event as **within the normal range**.")
 
+        st.divider()
+        show_mitre_intelligence(pred)
+        st.divider()
         st.subheader("Class probabilities")
         prob_df = pd.DataFrame({
             "Class": classes,
@@ -747,6 +751,25 @@ if page == "Live classifier":
                         "predictions.csv",
                         width="stretch"
                     )
+                st.divider()
+
+                st.subheader("Threat Intelligence Summary")
+                st.caption("Investigation guidance based on predicted event classes.")
+
+                if attack_count > 0:
+                    st.warning(
+                        f"{attack_count:,} records classified as potential cyber attacks."
+                    )
+                    show_mitre_intelligence("Attack")
+
+                if natural_count > 0:
+                    st.info(
+                        f"{natural_count:,} records classified as potential natural faults."
+                    )
+                    show_mitre_intelligence("Natural")
+
+                if attack_count == 0 and natural_count == 0 and normal_count > 0:
+                    show_mitre_intelligence("NoEvents")
 
 # ================================================================== TAB 2
 if page == "Model comparison":
