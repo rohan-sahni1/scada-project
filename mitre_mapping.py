@@ -26,62 +26,93 @@ MITRE_TECHNIQUES = [
 ]
 
 
+
 def show_mitre_intelligence(predicted_class):
 
-    st.subheader("MITRE ATT&CK for ICS")
+    st.markdown("""
+    <style>
+    .st-key-mitre_attack_panel,
+    .st-key-mitre_natural_panel,
+    .st-key-mitre_normal_panel {
+        background: rgba(8, 20, 38, 0.92);
+        border: 1px solid rgba(0, 212, 255, 0.45);
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 12px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     if predicted_class == "Attack":
 
-        st.warning(
-            "Potential cyber threat - Security investigation required."
-        )
+        with st.container(key="mitre_attack_panel"):
 
-        st.caption(
-            "Candidate technique references only. "
-            "The classifier does not identify specific attack subtypes."
-        )
+            st.subheader("MITRE ATT&CK for ICS")
 
-        st.dataframe(
-            pd.DataFrame(MITRE_TECHNIQUES),
-            hide_index=True,
-            width="stretch"
-        )
+            st.warning(
+                "Potential cyber threat - Security investigation required."
+            )
 
-        st.markdown("**Recommended Actions**")
+            st.markdown("**Candidate Technique References**")
 
-        st.markdown("""
-        - Review security and control panel logs.
-        - Verify sensor readings and relay activity.
-        - Investigate unauthorized control commands.
-        - Escalate suspicious activity to the security team.
-        """)
+            st.caption(
+                "Candidate technique references only. "
+                "The classifier does not identify specific attack subtypes."
+            )
 
-        st.markdown(
-            "[Official MITRE ATT&CK for ICS Matrix]"
-            "(https://attack.mitre.org/matrices/ics/)"
-        )
+            st.dataframe(
+                pd.DataFrame(MITRE_TECHNIQUES),
+                hide_index=True,
+                width="stretch"
+            )
+
+            st.divider()
+
+            st.markdown("**Recommended Security Actions**")
+
+            st.markdown("""
+- Review security and control panel logs.
+- Verify sensor readings and relay activity.
+- Investigate unauthorized control commands.
+- Escalate suspicious activity to the security team.
+            """)
+
+            st.markdown(
+                "[Official MITRE ATT&CK for ICS Matrix]"
+                "(https://attack.mitre.org/matrices/ics/)"
+            )
 
     elif predicted_class == "Natural":
 
-        st.warning(
-            "Potential equipment fault - Maintenance review required."
-        )
+        with st.container(key="mitre_natural_panel"):
 
-        st.markdown("""
-        - Inspect equipment and sensor readings.
-        - Review protective relay activity.
-        - Notify the maintenance team.
-        """)
+            st.subheader("Equipment Fault Assessment")
 
-        st.caption(
-            "No MITRE attack technique assigned to this prediction."
-        )
+            st.warning(
+                "Potential equipment fault - Maintenance review required."
+            )
+
+            st.markdown("**Recommended Maintenance Actions**")
+
+            st.markdown("""
+- Inspect equipment and sensor readings.
+- Review protective relay activity.
+- Notify the maintenance team.
+            """)
+
+            st.caption(
+                "No MITRE attack technique assigned to this prediction."
+            )
 
     elif predicted_class == "NoEvents":
 
-        st.success("Model predicts normal operation.")
+        with st.container(key="mitre_normal_panel"):
 
-        st.caption(
-            "Continue routine monitoring. "
-            "No MITRE attack technique assigned."
-        )
+            st.subheader("Normal Operation Assessment")
+
+            st.success("Model predicts normal operation.")
+
+            st.caption(
+                "Continue routine monitoring. "
+                "No MITRE attack technique assigned."
+            )

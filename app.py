@@ -491,7 +491,7 @@ tab_data = st.container() if page == "Dataset" else st.empty()
 
 # ================================================================== TAB 1
 if page == "Live classifier":
-    mode = st.radio("Input", ["Pick a demo event", "Upload a CSV"], horizontal=True)
+    mode = st.radio("Input", ["Pick a demo event", "Upload a CSV", "Simulated Live Replay"], horizontal=True)
 
     if mode == "Pick a demo event":
         demo = pd.read_csv("outputs/demo_samples.csv")
@@ -537,7 +537,136 @@ if page == "Live classifier":
         horizontal=True
     )
 
+    
+    elif mode == "Simulated Live Replay":
+
+        import time
+
+        st.subheader("Simulated Live Monitoring")
+
+        st.caption(
+            "Recorded CSV data is replayed progressively to simulate "
+            "live SCADA monitoring. No physical equipment is connected."
+        )
+
+        replay_file = st.file_uploader(
+            "Upload recorded SCADA data",
+            type="csv",
+            key="replay_csv"
+        )
+
+        if replay_file is not None:
+
+            replay_df = pd.read_csv(replay_file)
+
+            missing = [
+                c for c in bundle["features"]
+                if c not in replay_df.columns
+            ]
+
+            if missing:
+                st.error(
+                    f"{len(missing)} required feature columns are missing."
+                )
+
+            elif replay_df.empty:
+                st.error("The uploaded CSV is empty.")
+
+            else:
+
+                st.success(
+                    f"{len(replay_df):,} recorded events available."
+                )
+
+                replay_limit = st.selectbox(
+                    "Number of records to replay",
+                    [20, 50, 100, 200],
+                    index=1
+                )
+
+                delay = st.selectbox(
+                    "Replay interval (seconds)",
+                    [0.1, 0.25, 0.5, 1.0],
+                    index=1
+                )
+
+                if st.button("Start Replay", key="start_replay"):
+
+                    replay_data = replay_df.head(replay_limit)
+
+                    labels, proba, err = score(replay_data, bundle)
+
+                    replay_results = pd.DataFrame({
+                        "Predicted Class": labels,
+                        "Confidence": proba.max(axis=1),
+                        "Anomaly Score": err
+                    })
+
+                    total = len(replay_results)
+
+                    progress = st.progress(0)
+                    status = st.empty()
+                    metrics = st.empty()
+
+                    st.subheader("Live Confidence Monitoring")
+                    graph = st.empty()
+
+                    st.subheader("Recent Event Log")
+                    event_log = st.empty()
+
+                    for i in range(1, total + 1):
+
+                        current = replay_results.iloc[:i]
+                        latest = current.iloc[-1]
+
+                        status.info(
+                            f"Replaying event {i} of {total} | "
+                            f"Predicted: {latest['Predicted Class']} | "
+                            f"Confidence: {latest['Confidence']:.1%}"
+                        )
+
+                        with metrics.container():
+
+                            c1, c2, c3, c4 = st.columns(4)
+
+                            c1.metric("Processed", i)
+
+                            c2.metric(
+                                "Attack",
+                                int((current["Predicted Class"] == "Attack").sum())
+                            )
+
+                            c3.metric(
+                                "Natural",
+                                int((current["Predicted Class"] == "Natural").sum())
+                            )
+
+                            c4.metric(
+                                "NoEvents",
+                                int((current["Predicted Class"] == "NoEvents").sum())
+                            )
+
+                        graph.line_chart(
+                            current[["Confidence"]],
+                            color="#00d9ff"
+                        )
+
+                        event_log.dataframe(
+                            current.tail(10),
+                            hide_index=True,
+                            width="stretch"
+                        )
+
+                        progress.progress(i / total)
+
+                        time.sleep(delay)
+
+                    status.success(
+                        f"Replay completed: {total} events processed."
+                    )
+
     else:
+
         up = st.file_uploader("CSV with the same feature columns", type="csv")
         if up is None:
             st.info("Upload a CSV to classify many events at once.")
@@ -742,15 +871,7 @@ if page == "Live classifier":
                     width="stretch",
                     height=300
                 )
-                left_space, download_col, right_space = st.columns([2, 1, 2])
-
-                with download_col:
-                    st.download_button(
-                        "Download results",
-                        out.to_csv(index=False),
-                        "predictions.csv",
-                        width="stretch"
-                    )
+                
                 st.divider()
 
                 st.subheader("Threat Intelligence Summary")
@@ -770,6 +891,19 @@ if page == "Live classifier":
 
                 if attack_count == 0 and natural_count == 0 and normal_count > 0:
                     show_mitre_intelligence("NoEvents")
+                
+                st.divider()
+
+                left_space, download_col, right_space = st.columns([2, 1, 2])
+
+                with download_col:
+                    st.download_button(
+                        "Download results",
+                        out.to_csv(index=False),
+                        "predictions.csv",
+                        width="stretch"
+                    )
+
 
 # ================================================================== TAB 2
 if page == "Model comparison":
